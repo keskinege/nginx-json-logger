@@ -7,7 +7,7 @@
 #   sudo ./install.sh [--prefix /etc/nginx] [--demo] [--test] [--js-only]
 #
 #   --demo    also install a self-contained test server on :8080 with native
-#             auth_jwt and a generated HS256 key (stored in demo.secret)
+#             auth_jwt and the demo HS256 key in deploy/vm/jwks.json
 #   --test    run `nginx -t` at the end
 #   --js-only logging module + snippets only; no demo, no JWKS, no auth_jwt
 #             directives. Use when JWT validation is already configured.
@@ -102,13 +102,7 @@ if [ "$DEMO" = "1" ]; then
         exit 1
     fi
     echo "==> installing demo server on :8080"
-    if [ ! -s "$JSONLOG_DIR/demo.secret" ]; then
-        (umask 077; openssl rand -hex 32 > "$JSONLOG_DIR/demo.secret")
-    fi
-    demo_secret=$(cat "$JSONLOG_DIR/demo.secret")
-    demo_k=$(printf '%s' "$demo_secret" | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-    printf '{"keys":[{"k":"%s","kty":"oct","kid":"0001"}]}\n' "$demo_k" > "$JSONLOG_DIR/jwks.json"
-    chmod 0644 "$JSONLOG_DIR/jwks.json"
+    install -m 0644 "$SRC/deploy/vm/jwks.json" "$JSONLOG_DIR/jwks.json"
     install -m 0644 "$SRC/deploy/vm/jsonlog-demo.conf" "$PREFIX/conf.d/jsonlog-demo.conf"
 fi
 
@@ -140,8 +134,7 @@ if [ "$DEMO" = "1" ]; then
 Demo server is auto-included by the usual conf.d/*.conf glob:
 
     curl -s localhost:8080/healthz
-    SECRET=\$(sudo cat $JSONLOG_DIR/demo.secret)
-    TOKEN=\$(./mint-hs256.sh --secret "\$SECRET")
+    TOKEN=\$(./mint-hs256.sh)
     curl -s -H "Authorization: Bearer \$TOKEN" localhost:8080/api/get
     tail -1 /var/log/nginx/json.log | jq .
 

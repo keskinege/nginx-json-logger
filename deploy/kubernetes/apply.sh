@@ -35,19 +35,7 @@ for s in regcred nplus-license; do
         | kubectl --context "$CTX" -n "$NS" apply -f -
 done
 
-# Demo HS256 key: generated once and stored in a Secret, so re-applies keep
-# the same tokens. Read it with:
-#   kubectl -n jsonlog-test get secret jsonlog-demo -o jsonpath='{.data.secret}' | base64 -d
-if kubectl --context "$CTX" -n "$NS" get secret jsonlog-demo >/dev/null 2>&1; then
-    secret=$(kubectl --context "$CTX" -n "$NS" get secret jsonlog-demo \
-        -o jsonpath='{.data.secret}' | base64 -d)
-else
-    secret=$(openssl rand -hex 32)
-    kubectl --context "$CTX" -n "$NS" create secret generic jsonlog-demo \
-        --from-literal=secret="$secret" >/dev/null
-fi
-k=$(printf '%s' "$secret" | openssl base64 -A | tr '+/' '-_' | tr -d '=')
-printf '{"keys":[{"k":"%s","kty":"oct","kid":"0001"}]}\n' "$k" > "$TMP/jwks.json"
+# Demo HS256 key is public and committed: deploy/kubernetes/jwks.json.
 
 kubectl --context "$CTX" -n "$NS" create configmap jsonlog-config \
     --from-file=nginx.conf="$HERE/nginx.conf" \
@@ -55,7 +43,7 @@ kubectl --context "$CTX" -n "$NS" create configmap jsonlog-config \
     --from-file=location.conf="$SRC/conf/jsonlog/location.conf" \
     --from-file=no-body.conf="$SRC/conf/jsonlog/no-body.conf" \
     --from-file=jsonlog.js="$SRC/njs/jsonlog.js" \
-    --from-file=jwks.json="$TMP/jwks.json" \
+    --from-file=jwks.json="$HERE/jwks.json" \
     --dry-run=client -o yaml | kubectl --context "$CTX" -n "$NS" apply -f -
 
 sed "s|^          image: .*|          image: $IMAGE|" "$HERE/deployment.yaml" > "$TMP/deployment.yaml"
@@ -68,11 +56,10 @@ kubectl --context "$CTX" -n "$NS" get pods,svc -o wide
 
 cat <<EOF
 
-Demo key:
-  kubectl --context $CTX -n $NS get secret jsonlog-demo -o jsonpath='{.data.secret}' | base64 -d
+Demo key (public, demo only): deploy/kubernetes/jwks.json
+  jq -r '.keys[0].k' deploy/kubernetes/jwks.json | tr '_-' '/+' | openssl base64 -d -A
 
 Mint a token and test:
-  JWT_SECRET=\$(kubectl --context $CTX -n $NS get secret jsonlog-demo -o jsonpath='{.data.secret}' | base64 -d) \\
-    node $SRC/test/e2e/mint-hs256.mjs
+  node $SRC/test/e2e/mint-hs256.mjs
   kubectl --context $CTX -n $NS port-forward svc/jsonlog-nginx 18081:80
 EOF

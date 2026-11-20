@@ -24,8 +24,7 @@ Creates namespace `jsonlog-test` with:
 | Resource | Purpose |
 |---|---|
 | `secret/regcred`, `secret/nplus-license` | copied from `$SRCNS` (owner refs stripped) |
-| `secret/jsonlog-demo` | generated HS256 key, reused across re-applies |
-| `configmap/jsonlog-config` | nginx.conf, http.conf, location/no-body, jsonlog.js, jwks.json |
+| `configmap/jsonlog-config` | nginx.conf, http.conf, location/no-body, jsonlog.js, `deploy/kubernetes/jwks.json` |
 | `deploy/jsonlog-httpbin` + `svc` | upstream |
 | `deploy/jsonlog-nginx` + `svc` | Plus + jsonlog, 8080 → 80 |
 | `location /_jwks` | internal static JWKS (`auth_jwt_key_request`) |
@@ -41,13 +40,11 @@ The default image is `nginx-plus-ingress:5.6.3` (nginx 1.31.x Plus, njs and
 ```sh
 kubectl --context "$CTX" -n jsonlog-test port-forward svc/jsonlog-nginx 18081:80 &
 B=http://localhost:18081
-SECRET=$(kubectl --context "$CTX" -n jsonlog-test get secret jsonlog-demo -o jsonpath='{.data.secret}' | base64 -d)
-
-T=$(JWT_SECRET=$SECRET node ../../test/e2e/mint-hs256.mjs)
-EXP=$(JWT_SECRET=$SECRET node ../../test/e2e/mint-hs256.mjs --exp-in -60)
-BAD=$(JWT_SECRET=$SECRET node ../../test/e2e/mint-hs256.mjs --secret wrong)
-AUD=$(JWT_SECRET=$SECRET node ../../test/e2e/mint-hs256.mjs --aud other)
-ISS=$(JWT_SECRET=$SECRET node ../../test/e2e/mint-hs256.mjs --iss https://other)
+T=$(node ../../test/e2e/mint-hs256.mjs)
+EXP=$(node ../../test/e2e/mint-hs256.mjs --exp-in -60)
+BAD=$(node ../../test/e2e/mint-hs256.mjs --secret wrong)
+AUD=$(node ../../test/e2e/mint-hs256.mjs --aud other)
+ISS=$(node ../../test/e2e/mint-hs256.mjs --iss https://other)
 
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $T"   $B/api/get  # 200
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $EXP" $B/api/get  # 401

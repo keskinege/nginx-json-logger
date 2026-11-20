@@ -107,9 +107,9 @@ set $jl_allowed_algs      "RS256";
 
 ## 5. Demo (optional)
 
-The demo installs a server on `:8080` with `auth_jwt` against a static JWKS.
-The HS256 key is generated at install time (32 random bytes), stored in
-`/etc/nginx/conf.d/jsonlog/demo.secret` (0600) and published in `jwks.json`.
+The demo installs a server on `:8080` with `auth_jwt` against the static
+`deploy/vm/jwks.json`. That key (`kid 0001`, secret `fantasticjwt`) is public and
+demo-only — never use it outside this demo.
 
 ```sh
 sudo ./deploy/vm/install.sh --demo --test
@@ -121,12 +121,11 @@ would fail). The demo file lands in `conf.d/jsonlog-demo.conf`, which the normal
 
 ```sh
 cd ~/logger/deploy/vm
-SECRET=$(sudo cat /etc/nginx/conf.d/jsonlog/demo.secret)
-TOKEN=$(./mint-hs256.sh --secret "$SECRET")
-EXP=$(./mint-hs256.sh --secret "$SECRET" --exp-in -60)
+TOKEN=$(./mint-hs256.sh)
+EXP=$(./mint-hs256.sh --exp-in -60)
 BAD=$(./mint-hs256.sh --secret wrong)
-AUD=$(./mint-hs256.sh --secret "$SECRET" --aud other)
-ISS=$(./mint-hs256.sh --secret "$SECRET" --iss https://other)
+AUD=$(./mint-hs256.sh --aud other)
+ISS=$(./mint-hs256.sh --iss https://other)
 
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" localhost:8080/api/get  # 200
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $EXP"   localhost:8080/api/get  # 401
