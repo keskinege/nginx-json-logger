@@ -1,0 +1,8 @@
+certs/
+logs/
+*.log
+node_modules/
+.superpowers/
+license.jwt
+.DS_Store
+demo.secret

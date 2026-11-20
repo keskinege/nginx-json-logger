@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: jsonlog-test
+  name: jsonlog-nginx
+  labels:
+    app.kubernetes.io/name: jsonlog-nginx
+spec:
+  selector:
+    app.kubernetes.io/name: jsonlog-nginx
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
